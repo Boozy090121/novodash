@@ -1,0 +1,771 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novo Nordisk Analysis Dashboard</title>
+    <!-- First script to run - fixes loading overlay -->
+    <script>
+        // Immediate fix for loading overlay
+        document.addEventListener('DOMContentLoaded', function() {
+            const overlay = document.getElementById('processing-overlay');
+            if (overlay) overlay.style.display = 'none';
+        });
+    </script>
+    <link rel="stylesheet" href="dashboard-ui.css">
+    <style>
+        :root {
+            --pci-red: #CC2030;
+            --pci-blue: #0051BA;
+            --dark-grey: #232323;
+            --light-grey: #A8A8AA;
+        }
+        
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .title {
+            margin: 0;
+            color: var(--dark-grey);
+        }
+        
+        .file-controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .dashboard-section {
+            margin-bottom: 30px;
+        }
+        
+        .dashboard-tabs {
+            display: flex;
+            border-bottom: 1px solid #dee2e6;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .tab-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-right: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .tab-item.active {
+            border-bottom-color: var(--pci-red);
+            color: var(--pci-red);
+            font-weight: 500;
+        }
+        
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .summary-box {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .summary-item {
+            background-color: white;
+            padding: 15px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        
+        .summary-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin: 10px 0;
+            color: var(--pci-blue);
+        }
+        
+        .summary-label {
+            color: var(--dark-grey);
+            font-size: 0.9rem;
+        }
+        
+        .trend-indicator {
+            font-size: 0.8rem;
+            padding: 2px 6px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        
+        .trend-up {
+            background-color: #e6f7e6;
+            color: #2e7d32;
+        }
+        
+        .trend-down {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        
+        .chart-container {
+            height: 300px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            background-color: white;
+        }
+        
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .processing-overlay {
+            display: none !important; /* Force hide */
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .processing-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        .processing-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--pci-blue);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 15px;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background-color: var(--pci-blue);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .local-file-notice {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .coming-soon {
+            padding: 30px;
+            text-align: center;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            color: var(--light-grey);
+        }
+        
+        .coming-soon h3 {
+            color: var(--pci-blue);
+            margin-bottom: 10px;
+        }
+        
+        .coming-soon p {
+            margin-bottom: 0;
+        }
+        
+        button {
+            background-color: var(--pci-blue);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background-color: #003c8f;
+        }
+        
+        button:disabled {
+            background-color: #b0bec5;
+            cursor: not-allowed;
+        }
+        
+        .button-secondary {
+            background-color: white;
+            color: var(--pci-blue);
+            border: 1px solid var(--pci-blue);
+        }
+        
+        .button-secondary:hover {
+            background-color: #f0f7ff;
+        }
+        
+        .status {
+            font-size: 14px;
+            padding: 8px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        th, td {
+            padding: 10px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        th {
+            background-color: #f8f9fa;
+            font-weight: 500;
+        }
+        
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .analytics-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .lot-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Novo Nordisk Analysis Dashboard</h1>
+            <div id="data-status" class="status">Ready to load data</div>
+        </div>
+        
+        <div class="file-controls">
+            <div class="local-file-notice">
+                <strong>Local File Mode:</strong> This dashboard runs directly from your computer without needing a server.
+            </div>
+            <label for="dataFile">Select Novo Nordisk data file:</label>
+            <input type="file" id="dataFile" accept=".json,.csv">
+            <button id="loadDataButton">Load Data</button>
+        </div>
+        
+        <div class="dashboard-section">
+            <div class="dashboard-tabs">
+                <div class="tab-item active" data-tab="overview">Overview</div>
+                <div class="tab-item" data-tab="internal-rft">Internal RFT</div>
+                <div class="tab-item" data-tab="external-rft">External RFT</div>
+                <div class="tab-item" data-tab="process-metrics">Process Metrics</div>
+                <div class="tab-item" data-tab="insights">Insights</div>
+            </div>
+            
+            <div id="overview-content" class="tab-content active">
+                <div class="summary-box">
+                    <div class="summary-item">
+                        <div class="summary-label">Total Records</div>
+                        <div id="total-records" class="summary-value">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Total Lots</div>
+                        <div id="total-lots" class="summary-value">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Overall RFT Rate</div>
+                        <div id="overall-rft-rate" class="summary-value">0%</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Analysis Status</div>
+                        <div id="analysis-status" class="summary-value">Pending</div>
+                    </div>
+                </div>
+                
+                <div class="chart-grid">
+                    <div class="chart-container" id="overview-trend-chart">
+                        <h3>RFT Performance Overview</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                    <div class="chart-container" id="issue-distribution-chart">
+                        <h3>Issue Distribution</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                </div>
+                
+                <div class="chart-grid">
+                    <div class="chart-container" id="lot-quality-chart">
+                        <h3>Lot Quality Rating</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                    <div class="chart-container" id="lot-timeline-chart">
+                        <h3>Lot Timeline</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="internal-rft-content" class="tab-content">
+                <div class="summary-box">
+                    <div class="summary-item">
+                        <div class="summary-label">Internal RFT Rate</div>
+                        <div id="internal-rft-rate" class="summary-value">0%</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">WIP Issues</div>
+                        <div id="wip-issues-count" class="summary-value">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Affected Lots</div>
+                        <div id="internal-affected-lots" class="summary-value">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Top Issue</div>
+                        <div id="top-internal-issue" class="summary-value">-</div>
+                    </div>
+                </div>
+                
+                <div class="chart-grid">
+                    <div class="chart-container" id="internal-rft-chart">
+                        <h3>Internal RFT Trend</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                    <div class="chart-container" id="wip-fg-comparison-chart">
+                        <h3>WIP vs FG Issues</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                </div>
+                
+                <div class="chart-grid">
+                    <div class="chart-container" id="form-analysis-chart">
+                        <h3>Internal RFT Form Analysis</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                    <div class="chart-container" id="error-by-form-chart">
+                        <h3>Errors by Form Title</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="external-rft-content" class="tab-content">
+                <div class="summary-box">
+                    <div class="summary-item">
+                        <div class="summary-label">External RFT Rate</div>
+                        <div id="external-rft-rate" class="summary-value">0%</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Customer Issues</div>
+                        <div id="customer-issues-count" class="summary-value">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Affected Lots</div>
+                        <div id="external-affected-lots" class="summary-value">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Top Issue</div>
+                        <div id="top-external-issue" class="summary-value">-</div>
+                    </div>
+                </div>
+                
+                <div class="chart-grid">
+                    <div class="chart-container" id="external-rft-trend-chart">
+                        <h3>External RFT Trend</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                    <div class="chart-container" id="customer-issue-categories-chart">
+                        <h3>Customer Issue Categories</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                </div>
+                
+                <div class="chart-container" id="external-rft-impact-chart">
+                    <h3>External RFT Impact Analysis</h3>
+                    <!-- Chart will be inserted here -->
+                </div>
+            </div>
+            
+            <div id="process-metrics-content" class="tab-content">
+                <div class="summary-box">
+                    <div class="summary-item">
+                        <div class="summary-label">Avg. Cycle Time</div>
+                        <div id="avg-cycle-time" class="summary-value">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Correction Impact</div>
+                        <div id="correction-impact" class="summary-value">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Reviewed Lots</div>
+                        <div id="reviewed-lots" class="summary-value">0</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Bottleneck</div>
+                        <div id="bottleneck-stage" class="summary-value">-</div>
+                    </div>
+                </div>
+                
+                <div class="chart-grid">
+                    <div class="chart-container" id="process-flow-visualization">
+                        <h3>Process Flow Visualization</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                    <div class="chart-container" id="time-trend-chart">
+                        <h3>Cycle Time Trend</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                </div>
+                
+                <div class="chart-grid">
+                    <div class="chart-container" id="process-improvement-impact">
+                        <h3>Process Improvement Impact</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                    <div class="chart-container" id="comparative-timing-table">
+                        <h3>Comparative Timing Analysis</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="insights-content" class="tab-content">
+                <div class="summary-box">
+                    <div class="summary-item">
+                        <div class="summary-label">Critical Path</div>
+                        <div id="critical-path-value" class="summary-value">...</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Data Confidence</div>
+                        <div id="confidence-score" class="summary-value">...</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">RFT vs Baseline</div>
+                        <div id="rft-deviation" class="summary-value">...</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">Process Risk</div>
+                        <div id="risk-potential" class="summary-value">...</div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <h3>Key Insights and Recommendations</h3>
+                    <div id="key-insights-container" style="max-height: 400px; overflow-y: auto;">
+                        <div class="data-requirement-message">
+                            <p>Generating lot-based insights and recommendations...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chart-grid">
+                    <div class="chart-container" id="critical-factors-chart">
+                        <h3>Critical Success Factors</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                    <div class="chart-container" id="documentation-correlation-chart">
+                        <h3>Documentation Issue Analysis</h3>
+                        <!-- Chart will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="processing-overlay" id="processing-overlay">
+        <div class="processing-content">
+            <div class="processing-spinner"></div>
+            <div id="processing-message">Processing data...</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="processing-progress" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Core adapter script - must be loaded first -->
+    <script src="data-adapter.js"></script>
+    
+    <!-- Lot-based data adapter -->
+    <script src="lot-based-data-adapter.js"></script>
+    
+    <!-- Direct chart fix -->
+    <script src="direct-chart-fix.js"></script>
+    
+    <!-- Lot-based chart adapter -->
+    <script src="lot-chart-adapter.js"></script>
+    
+    <!-- Enhanced lot analytics -->
+    <script src="enhanced-lot-analytics.js"></script>
+    
+    <!-- Auto-load script -->
+    <script src="autoload-script.js"></script>
+    
+    <!-- Tab switching functionality -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        // Set up tab switching
+        const tabs = document.querySelectorAll('.tab-item');
+        tabs.forEach(tab => {
+          tab.addEventListener('click', function() {
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked tab
+            this.classList.add('active');
+            
+            // Show corresponding content
+            const tabId = this.getAttribute('data-tab');
+            document.getElementById(tabId + '-content').classList.add('active');
+          });
+        });
+      });
+    </script>
+    
+    <!-- Lot Analytics Initialization Fix -->
+    <script>
+    /* 
+     * Lot Analytics Initialization Fix
+     * 
+     * This script fixes the issue with lot-based analytics not initializing properly.
+     * Add this script to your index.html file right before the closing body tag.
+     */
+    
+    (function() {
+      console.log('Lot Analytics Initialization Fix loaded');
+      
+      // Initialize when DOM is ready
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM ready, fixing lot analytics initialization');
+        
+        // Check for data availability and initialize lot analytics
+        checkForDataAndInitLotAnalytics();
+        
+        // Add to existing data loading button if present
+        const loadButton = document.getElementById('loadDataButton');
+        if (loadButton) {
+          loadButton.addEventListener('click', function() {
+            // Give the data processing time to complete before initializing lot analytics
+            setTimeout(checkForDataAndInitLotAnalytics, 1000);
+          });
+        }
+      });
+      
+      // Function to check for data and initialize lot analytics
+      function checkForDataAndInitLotAnalytics() {
+        const maxAttempts = 5;
+        let attempts = 0;
+        
+        // Try immediately
+        if (initializeLotAnalytics()) {
+          return;
+        }
+        
+        // Set interval to keep trying
+        const checkInterval = setInterval(() => {
+          attempts++;
+          
+          if (initializeLotAnalytics()) {
+            clearInterval(checkInterval);
+            console.log('Lot analytics initialized successfully after ' + attempts + ' attempts');
+            return;
+          }
+          
+          if (attempts >= maxAttempts) {
+            clearInterval(checkInterval);
+            console.error('Failed to initialize lot analytics after ' + maxAttempts + ' attempts');
+          }
+        }, 1000);
+      }
+      
+      // Function to initialize lot analytics
+      function initializeLotAnalytics() {
+        console.log('Attempting to initialize lot analytics...');
+        
+        // Check if processed data exists
+        if (!window.processedData || !window.processedData.records) {
+          console.log('No processed data available yet');
+          return false;
+        }
+        
+        try {
+          console.log('Found processed data with ' + window.processedData.records.length + ' records');
+          
+          // Initialize lot analytics functions if they exist
+          if (typeof window.performLotLevelAnalysis === 'function') {
+            console.log('Executing performLotLevelAnalysis');
+            window.processedData = window.performLotLevelAnalysis(window.processedData);
+          }
+          
+          // Call lot analytics rendering if available
+          if (typeof window.renderLotAnalyticsCharts === 'function') {
+            console.log('Executing renderLotAnalyticsCharts');
+            window.renderLotAnalyticsCharts();
+          } 
+          // Or try accessing through window.lotAnalytics object
+          else if (window.lotAnalytics && typeof window.lotAnalytics.renderCharts === 'function') {
+            console.log('Executing lotAnalytics.renderCharts');
+            window.lotAnalytics.renderCharts();
+          }
+          // If neither exists, try some direct chart render calls
+          else {
+            console.log('No dedicated rendering function found, attempting direct chart renders');
+            
+            // Try rendering specific lot-based charts if functions exist
+            if (typeof window.renderWipFgComparisonChart === 'function') {
+              window.renderWipFgComparisonChart();
+            }
+            
+            if (typeof window.renderFormAnalysisChart === 'function') {
+              window.renderFormAnalysisChart();
+            }
+            
+            if (typeof window.renderErrorByFormChart === 'function') {
+              window.renderErrorByFormChart();
+            }
+            
+            if (typeof window.renderErrorMakerChart === 'function') {
+              window.renderErrorMakerChart();
+            }
+          }
+          
+          // Update status message
+          const statusElement = document.getElementById('data-status');
+          if (statusElement) {
+            statusElement.textContent = 'Lot-based analytics active';
+            statusElement.style.color = '#28a745';
+          }
+          
+          return true;
+        } catch (error) {
+          console.error('Error initializing lot analytics:', error);
+          return false;
+        }
+      }
+    
+      // Manually expose key functions to window scope if they don't exist
+      if (window.lotAnalytics && !window.renderLotAnalyticsCharts) {
+        window.renderLotAnalyticsCharts = function() {
+          console.log('Wrapper renderLotAnalyticsCharts called');
+          
+          // Try to render individual chart components
+          if (typeof window.renderWipFgComparisonChart === 'function') {
+            window.renderWipFgComparisonChart();
+          }
+          
+          if (typeof window.renderFormAnalysisChart === 'function') {
+            window.renderFormAnalysisChart();
+          }
+          
+          if (typeof window.renderErrorByFormChart === 'function') {
+            window.renderErrorByFormChart();
+          }
+          
+          if (typeof window.renderErrorMakerChart === 'function') {
+            window.renderErrorMakerChart();
+          }
+          
+          if (typeof window.renderLotBasedRftAnalysis === 'function') {
+            window.renderLotBasedRftAnalysis();
+          }
+          
+          if (typeof window.renderInternalRftFormAnalysis === 'function') {
+            window.renderInternalRftFormAnalysis();
+          }
+          
+          if (typeof window.renderProcessCycleTimeAnalysis === 'function') {
+            window.renderProcessCycleTimeAnalysis();
+          }
+          
+          if (typeof window.renderCorrectionImpactAnalysis === 'function') {
+            window.renderCorrectionImpactAnalysis();
+          }
+          
+          if (typeof window.renderDocumentationIssueAnalysis === 'function') {
+            window.renderDocumentationIssueAnalysis();
+          }
+        };
+      }
+    })();
+    </script>
+    
+    <!-- Chart Type Fix -->
+    <script src="chart-type-fix.js"></script>
+</body>
+</html> 
